@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Trust Wallet Approve UI</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers/dist/ethers.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      max-width: 600px;
+      margin: auto;
+    }
+    input, button {
+      padding: 10px;
+      margin: 8px 0;
+      width: 100%;
+      font-size: 16px;
+    }
+    #status {
+      margin-top: 20px;
+      padding: 12px;
+      border-radius: 6px;
+      background-color: #f3f3f3;
+    }
+    .success { color: green; }
+    .error { color: red; }
+  </style>
+</head>
+<body>
+
+  <h2>Connect Wallet + Approve Token</h2>
+
+  <button onclick="connectWallet()">🔗 Connect Wallet</button>
+  <p id="walletAddress">Not connected</p>
+
+  <hr>
+
+  <label>🧾 Spender Address</label>
+  <input type="text" id="spender" placeholder="0x..." />
+
+  <label>💰 Amount (in USDT)</label>
+  <input type="number" id="amount" placeholder="e.g. 100" />
+
+  <button onclick="approveToken()">✅ Approve</button>
+
+  <div id="status"></div>
+
+  <script>
+    let signer;
+    const usdtAddress = "0x148f2aC944c6AA1Eb51Ff5d246d0a6A6e65c6780"; // Sepolia
+    const usdtABI = [
+      "function approve(address spender, uint256 amount) public returns (bool)"
+    ];
+
+    function showStatus(message, type = "info") {
+      const status = document.getElementById("status");
+      status.className = type;
+      status.innerText = message;
+    }
+
+    async function connectWallet() {
+      if (typeof window.ethereum !== 'undefined') {
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        signer = provider.getSigner();
+        const address = await signer.getAddress();
+        document.getElementById("walletAddress").innerText = "✅ Connected: " + address;
+        showStatus("Wallet connected", "success");
+      } else {
+        showStatus("❌ Install MetaMask or Trust Wallet", "error");
+      }
+    }
+
+    async function approveToken() {
+      if (!signer) {
+        showStatus("❌ Please connect wallet first", "error");
+        return;
+      }
+
+      const spender = document.getElementById("spender").value.trim();
+      const amount = document.getElementById("amount").value.trim();
+
+      if (!ethers.utils.isAddress(spender)) {
+        showStatus("❌ Invalid spender address", "error");
+        return;
+      }
+
+      const usdt = new ethers.Contract(usdtAddress, usdtABI, signer);
+      const amountWithDecimals = ethers.utils.parseUnits(amount, 6); // USDT = 6 decimals
+
+      try {
+        showStatus("⏳ Sending transaction...");
+        const tx = await usdt.approve(spender, amountWithDecimals);
+        showStatus("📤 Waiting for confirmation...\nTX: " + tx.hash);
+        await tx.wait();
+        showStatus("✅ Approval successful!\nTX: " + tx.hash, "success");
+      } catch (err) {
+        showStatus("❌ Transaction failed: " + err.message, "error");
+      }
+    }
+  </script>
+
+</body>
+</html>
